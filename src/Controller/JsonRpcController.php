@@ -11,7 +11,6 @@ use Symfony\Component\Uid\Factory\UuidFactory;
 use Symfony\Component\Uid\Uuid;
 use Tourze\JsonRPCEncryptBundle\Service\Encryptor;
 use Tourze\JsonRPCEndpointBundle\Service\JsonRpcEndpoint as SDKJsonRpcEndpoint;
-use Yiisoft\Json\Json;
 
 class JsonRpcController extends AbstractController
 {
@@ -50,7 +49,7 @@ class JsonRpcController extends AbstractController
         }
 
         try {
-            $json = empty($content) ? [] : Json::decode($content);
+            $json = empty($content) ? [] : json_decode($content);
         } catch (\Throwable) {
             $this->logger->error('JSON数据反序列化失败', ['content' => $content]);
             $json = [];
@@ -99,7 +98,7 @@ class JsonRpcController extends AbstractController
         $response = new Response();
         $response->headers->set('Content-Type', 'application/json');
 
-        $response->setContent($this->sdkEndpoint->index(Json::encode($json), $request));
+        $response->setContent($this->sdkEndpoint->index(json_encode($json), $request));
 
         return $response;
     }
