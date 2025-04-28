@@ -4,12 +4,16 @@ namespace Tourze\JsonRPCHttpDirectCallBundle\Controller;
 
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Factory\UuidFactory;
 use Symfony\Component\Uid\Uuid;
+use Tourze\JsonRPC\Core\Exception\JsonRpcException;
+use Tourze\JsonRPC\Core\Model\JsonRpcResponse;
 use Tourze\JsonRPCEncryptBundle\Service\Encryptor;
+use Tourze\JsonRPCEndpointBundle\Serialization\JsonRpcResponseNormalizer;
 use Tourze\JsonRPCEndpointBundle\Service\JsonRpcEndpoint as SDKJsonRpcEndpoint;
 
 class JsonRpcController extends AbstractController
@@ -19,6 +23,7 @@ class JsonRpcController extends AbstractController
         private readonly LoggerInterface $logger,
         private readonly Encryptor $encryptor,
         private readonly UuidFactory $uuidFactory,
+        private readonly JsonRpcResponseNormalizer $responseNormalizer,
     )
     {
     }
@@ -30,11 +35,8 @@ class JsonRpcController extends AbstractController
      * @param string $prefix 只是用于我们识别是哪个服务，方便我们做流量分发，目前还没用处
      * @param string $method 方法名
      */
-    #[Route(
-        path: '/json-rpc/{prefix}/{method}.aspx',
-        name: 'rpc_http_server_caller',
-        methods: ['POST'],
-    )]
+    #[Route(path: '/json-rpc/{prefix}/{method}.aspx', name: 'rpc_http_server_caller', methods: ['POST'])]
+    #[Route(path: '/cp/json-rpc/{method}.aspx', name: 'json_rpc_cp_caller', methods: ['POST'])]
     public function directCall(string $prefix, string $method, Request $request): Response
     {
         $content = $request->getContent();
@@ -70,13 +72,25 @@ class JsonRpcController extends AbstractController
             'id' => $id,
         ];
 
-        $response = new Response();
-        $response->headers->set('Content-Type', 'application/json');
-        $content = $this->sdkEndpoint->index(json_encode($content), $request);
-        if ($this->encryptor->shouldEncrypt($request) && str_starts_with($content, '{"jsonrpc"')) {
-            $content = $this->encryptor->encryptByRequest($request, $content);
+        try {
+            $response = new Response();
+            $response->headers->set('Content-Type', 'application/json');
+
+            $content = $this->sdkEndpoint->index(json_encode($content), $request);
+            if ($this->encryptor->shouldEncrypt($request) && str_starts_with($content, '{"jsonrpc"')) {
+                $content = $this->encryptor->encryptByRequest($request, $content);
+            }
+            $response->setContent($content);
+        } catch (\Throwable $exception) {
+            $this->logger->error('发生未知的JSON-RPC异常', [
+                'exception' => $exception,
+            ]);
+
+            $j = new JsonRpcResponse();
+            $j->setId($id);
+            $j->setError(new JsonRpcException(-1, $exception->getMessage(), previous: $exception));
+            $response = new JsonResponse($this->responseNormalizer->normalize($j));
         }
-        $response->setContent($content);
 
         return $response;
     }
