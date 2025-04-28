@@ -36,7 +36,7 @@ class JsonRpcController extends AbstractController
      * @param string $method 方法名
      */
     #[Route(path: '/json-rpc/{prefix}/{method}.aspx', name: 'rpc_http_server_caller', methods: ['POST'])]
-    #[Route(path: '/cp/json-rpc/{method}.aspx', name: 'json_rpc_cp_caller', methods: ['POST'])]
+    #[Route(path: '/cp/json-rpc/{method}.aspx', name: 'json_rpc_cp_caller', defaults: ['prefix' => ''], methods: ['POST'])]
     public function directCall(string $prefix, string $method, Request $request): Response
     {
         $content = $request->getContent();
