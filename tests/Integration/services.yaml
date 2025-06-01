@@ -12,7 +12,9 @@ services:
   
   Tourze\JsonRPCEndpointBundle\Serialization\JsonRpcResponseNormalizer: ~
   
-  # 添加缺失的序列化器
+  # 添加缺失的序列化器依赖
+  Tourze\JsonRPCEndpointBundle\Serialization\JsonRpcCallDenormalizer: ~
+  
   Tourze\JsonRPCEndpointBundle\Serialization\JsonRpcCallSerializer: ~
   
   Tourze\JsonRPCEndpointBundle\Service\JsonRpcEndpoint:
@@ -23,5 +25,9 @@ services:
     
   # 实际控制器和服务
   Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController:
+    autowire: true
+    public: true
+
+  Tourze\JsonRPCHttpDirectCallBundle\Service\AttributeControllerLoader:
     autowire: true
     public: true
