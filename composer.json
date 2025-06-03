@@ -15,7 +15,7 @@
     "symfony/routing": "^6.4",
     "symfony/uid": "^6.4",
     "symfony/yaml": "^6.4 || ^7.1",
-    "tourze/backtrace-helper": "~0.0.5",
+    "tourze/backtrace-helper": "0.1.*",
     "tourze/json-rpc-core": "0.0.*",
     "tourze/json-rpc-encrypt-bundle": "0.1.*",
     "tourze/json-rpc-endpoint-bundle": "0.1.*",
