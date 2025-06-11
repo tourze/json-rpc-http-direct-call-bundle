@@ -23,7 +23,7 @@ class JsonRPCHttpDirectCallExtensionTest extends TestCase
         try {
             $extension->load($configs, $container);
             $this->assertTrue(true, 'Extension load method executed without exceptions');
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->fail('Extension load method should not throw exceptions: ' . $e->getMessage());
         }
 
