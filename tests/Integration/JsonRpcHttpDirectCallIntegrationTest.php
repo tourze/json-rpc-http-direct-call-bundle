@@ -3,6 +3,9 @@
 namespace Tourze\JsonRPCHttpDirectCallBundle\Tests\Integration;
 
 use PHPUnit\Framework\TestCase;
+use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
+use Tourze\IntegrationTestKernel\IntegrationTestKernel;
+use Tourze\JsonRPCHttpDirectCallBundle\JsonRPCHttpDirectCallBundle;
 use Tourze\JsonRPCHttpDirectCallBundle\Service\AttributeControllerLoader;
 
 /**
@@ -187,5 +190,27 @@ class JsonRpcHttpDirectCallIntegrationTest extends TestCase
         $constructor = $reflection->getConstructor();
         $this->assertNotNull($constructor);
         $this->assertCount(5, $constructor->getParameters());
+    }
+
+    protected static function getKernelClass(): string
+    {
+        return IntegrationTestKernel::class;
+    }
+
+    protected static function createKernel(array $options = []): IntegrationTestKernel
+    {
+        $appendBundles = [
+            FrameworkBundle::class => ['all' => true],
+            JsonRPCHttpDirectCallBundle::class => ['all' => true],
+        ];
+        
+        $entityMappings = [];
+
+        return new IntegrationTestKernel(
+            $options['environment'] ?? 'test',
+            $options['debug'] ?? true,
+            $appendBundles,
+            $entityMappings
+        );
     }
 }
