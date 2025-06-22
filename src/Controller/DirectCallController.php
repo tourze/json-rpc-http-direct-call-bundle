@@ -8,7 +8,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Uid\Factory\UuidFactory;
 use Symfony\Component\Uid\Uuid;
 use Tourze\JsonRPC\Core\Exception\JsonRpcException;
 use Tourze\JsonRPC\Core\Model\JsonRpcResponse;
@@ -16,13 +15,12 @@ use Tourze\JsonRPCEncryptBundle\Service\Encryptor;
 use Tourze\JsonRPCEndpointBundle\Serialization\JsonRpcResponseNormalizer;
 use Tourze\JsonRPCEndpointBundle\Service\JsonRpcEndpoint as SDKJsonRpcEndpoint;
 
-class JsonRpcController extends AbstractController
+class DirectCallController extends AbstractController
 {
     public function __construct(
         private readonly SDKJsonRpcEndpoint $sdkEndpoint,
         private readonly LoggerInterface $logger,
         private readonly Encryptor $encryptor,
-        private readonly UuidFactory $uuidFactory,
         private readonly JsonRpcResponseNormalizer $responseNormalizer,
     )
     {
@@ -37,7 +35,7 @@ class JsonRpcController extends AbstractController
      */
     #[Route(path: '/json-rpc/{prefix}/{method}.aspx', name: 'rpc_http_server_caller', methods: ['POST'])]
     #[Route(path: '/cp/json-rpc/{method}.aspx', name: 'json_rpc_cp_caller', defaults: ['prefix' => ''], methods: ['POST'])]
-    public function directCall(string $prefix, string $method, Request $request): Response
+    public function __invoke(string $prefix, string $method, Request $request): Response
     {
         $content = $request->getContent();
         // 如果有加密，我们就在这里解密算了
@@ -50,15 +48,14 @@ class JsonRpcController extends AbstractController
             $content = $d;
         }
 
-        try {
-            $json = empty($content) ? [] : json_decode($content);
-        } catch (\Throwable) {
-            $this->logger->error('JSON数据反序列化失败', ['content' => $content]);
+        $json = empty($content) ? [] : json_decode($content, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->logger->error('JSON数据反序列化失败', ['content' => $content, 'error' => json_last_error_msg()]);
             $json = [];
         }
 
         $id = $request->headers->get('request-id');
-        if (!$id) {
+        if ($id === null || $id === '') {
             $id = $prefix . Uuid::v4()->toRfc4122();
         } else {
             $id = htmlentities($id); // 防止有东西乱入
@@ -91,28 +88,6 @@ class JsonRpcController extends AbstractController
             $j->setError(new JsonRpcException(-1, $exception->getMessage(), previous: $exception));
             $response = new JsonResponse($this->responseNormalizer->normalize($j));
         }
-
-        return $response;
-    }
-
-    /**
-     * 直接调用接口
-     */
-    #[Route('/json-rpc/call/{method}', name: 'json_rpc_http_post_caller')]
-    public function directPost(string $method, Request $request): Response
-    {
-        // 构造一个JSON-RPC request
-        $json = [
-            'jsonrpc' => '2.0',
-            'id' => $this->uuidFactory->create()->toRfc4122(),
-            'method' => $method,
-            'params' => $request->request->all(),
-        ];
-
-        $response = new Response();
-        $response->headers->set('Content-Type', 'application/json');
-
-        $response->setContent($this->sdkEndpoint->index(json_encode($json), $request));
 
         return $response;
     }

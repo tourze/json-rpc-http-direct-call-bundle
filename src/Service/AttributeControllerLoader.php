@@ -6,7 +6,8 @@ use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Config\Loader\Loader;
 use Symfony\Component\DependencyInjection\Attribute\AutoconfigureTag;
 use Symfony\Component\Routing\RouteCollection;
-use Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController;
+use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController;
+use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController;
 use Tourze\RoutingAutoLoaderBundle\Service\RoutingAutoLoaderInterface;
 
 #[AutoconfigureTag('routing.loader')]
@@ -32,6 +33,9 @@ class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInter
 
     public function autoload(): RouteCollection
     {
-        return $this->controllerLoader->load(JsonRpcController::class);
+        $collection = new RouteCollection();
+        $collection->addCollection($this->controllerLoader->load(DirectCallController::class));
+        $collection->addCollection($this->controllerLoader->load(DirectPostController::class));
+        return $collection;
     }
 }

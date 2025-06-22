@@ -5,6 +5,8 @@ namespace Tourze\JsonRPCHttpDirectCallBundle\Tests\Integration;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\FrameworkBundle\FrameworkBundle;
 use Tourze\IntegrationTestKernel\IntegrationTestKernel;
+use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController;
+use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController;
 use Tourze\JsonRPCHttpDirectCallBundle\JsonRPCHttpDirectCallBundle;
 use Tourze\JsonRPCHttpDirectCallBundle\Service\AttributeControllerLoader;
 
@@ -117,8 +119,8 @@ class JsonRpcHttpDirectCallIntegrationTest extends TestCase
     public function testMockJsonRpcEndpoint_basicFunctionality(): void
     {
         // 创建一个继承类来解决构造函数问题
-        $mockEndpoint = new class(null) extends Mock\MockJsonRpcEndpoint {
-            public function __construct($unused) {
+        $mockEndpoint = new class() extends Mock\MockJsonRpcEndpoint {
+            public function __construct() {
                 // 跳过父类构造函数
             }
         };
@@ -171,25 +173,31 @@ class JsonRpcHttpDirectCallIntegrationTest extends TestCase
     public function testController_basicStructure(): void
     {
         // 验证控制器类存在
-        $this->assertTrue(class_exists('Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController'));
+        $this->assertTrue(class_exists(DirectCallController::class));
+        $this->assertTrue(class_exists(DirectPostController::class));
         
-        $reflection = new \ReflectionClass('Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController');
+        $directCallReflection = new \ReflectionClass(DirectCallController::class);
+        $directPostReflection = new \ReflectionClass(DirectPostController::class);
         
         // 验证控制器有正确的方法
-        $this->assertTrue($reflection->hasMethod('directCall'));
-        $this->assertTrue($reflection->hasMethod('directPost'));
+        $this->assertTrue($directCallReflection->hasMethod('__invoke'));
+        $this->assertTrue($directPostReflection->hasMethod('__invoke'));
         
         // 验证方法是public的
-        $directCallMethod = $reflection->getMethod('directCall');
-        $this->assertTrue($directCallMethod->isPublic());
+        $directCallInvokeMethod = $directCallReflection->getMethod('__invoke');
+        $this->assertTrue($directCallInvokeMethod->isPublic());
         
-        $directPostMethod = $reflection->getMethod('directPost');
-        $this->assertTrue($directPostMethod->isPublic());
+        $directPostInvokeMethod = $directPostReflection->getMethod('__invoke');
+        $this->assertTrue($directPostInvokeMethod->isPublic());
         
         // 验证构造函数参数数量
-        $constructor = $reflection->getConstructor();
-        $this->assertNotNull($constructor);
-        $this->assertCount(5, $constructor->getParameters());
+        $directCallConstructor = $directCallReflection->getConstructor();
+        $this->assertNotNull($directCallConstructor);
+        $this->assertCount(4, $directCallConstructor->getParameters());
+        
+        $directPostConstructor = $directPostReflection->getConstructor();
+        $this->assertNotNull($directPostConstructor);
+        $this->assertCount(2, $directPostConstructor->getParameters());
     }
 
     protected static function getKernelClass(): string

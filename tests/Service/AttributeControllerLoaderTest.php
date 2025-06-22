@@ -7,7 +7,8 @@ use PHPUnit\Framework\TestCase;
 use ReflectionProperty;
 use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Routing\RouteCollection;
-use Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController;
+use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController;
+use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController;
 use Tourze\JsonRPCHttpDirectCallBundle\Service\AttributeControllerLoader;
 
 class AttributeControllerLoaderTest extends TestCase
@@ -38,22 +39,29 @@ class AttributeControllerLoaderTest extends TestCase
     /**
      * 测试自动加载方法调用控制器加载器的load方法
      */
-    public function testAutoload_callsControllerLoaderWithJsonRpcController(): void
+    public function testAutoload_callsControllerLoaderWithControllers(): void
     {
-        // 创建一个模拟的RouteCollection
-        $mockRouteCollection = $this->createMock(RouteCollection::class);
+        // 创建模拟的RouteCollection
+        $mockRouteCollection1 = $this->createMock(RouteCollection::class);
+        $mockRouteCollection2 = $this->createMock(RouteCollection::class);
 
         // 设置预期行为
-        $this->controllerLoader->expects($this->once())
+        $this->controllerLoader->expects($this->exactly(2))
             ->method('load')
-            ->with(JsonRpcController::class)
-            ->willReturn($mockRouteCollection);
+            ->willReturnCallback(function ($controller) use ($mockRouteCollection1, $mockRouteCollection2) {
+                if ($controller === DirectCallController::class) {
+                    return $mockRouteCollection1;
+                } elseif ($controller === DirectPostController::class) {
+                    return $mockRouteCollection2;
+                }
+                throw new \InvalidArgumentException("Unexpected controller: $controller");
+            });
 
         // 执行被测方法
         $result = $this->loader->autoload();
 
-        // 断言结果
-        $this->assertSame($mockRouteCollection, $result);
+        // 断言结果是一个RouteCollection
+        $this->assertInstanceOf(RouteCollection::class, $result);
     }
 
     /**

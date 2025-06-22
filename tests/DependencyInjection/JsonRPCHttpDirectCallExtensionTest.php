@@ -28,8 +28,12 @@ class JsonRPCHttpDirectCallExtensionTest extends TestCase
         }
 
         // 验证服务是否已注册
-        $this->assertTrue($container->has('Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController') ||
-            $container->hasDefinition('Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController'),
-            'JsonRpcController service should be registered');
+        $this->assertTrue($container->has('Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController') ||
+            $container->hasDefinition('Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController'),
+            'DirectCallController service should be registered');
+            
+        $this->assertTrue($container->has('Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController') ||
+            $container->hasDefinition('Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController'),
+            'DirectPostController service should be registered');
     }
 }

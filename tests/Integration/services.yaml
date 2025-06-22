@@ -24,7 +24,11 @@ services:
     class: Tourze\JsonRPCHttpDirectCallBundle\Tests\Integration\Mock\MockEncryptor
     
   # 实际控制器和服务
-  Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController:
+  Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController:
+    autowire: true
+    public: true
+
+  Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController:
     autowire: true
     public: true
 

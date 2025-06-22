@@ -7,21 +7,19 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Uid\Factory\UuidFactory;
-use Symfony\Component\Uid\Uuid;
 use Tourze\JsonRPC\Core\Exception\JsonRpcException;
 use Tourze\JsonRPC\Core\Model\JsonRpcResponse;
 use Tourze\JsonRPCEncryptBundle\Service\Encryptor;
 use Tourze\JsonRPCEndpointBundle\Serialization\JsonRpcResponseNormalizer;
 use Tourze\JsonRPCEndpointBundle\Service\JsonRpcEndpoint;
-use Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController;
+use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController;
 
 /**
- * JsonRpc控制器完整测试类
+ * DirectCall控制器完整测试类
  */
-class JsonRpcControllerTest extends TestCase
+class DirectCallControllerTest extends TestCase
 {
-    private JsonRpcController $controller;
+    private DirectCallController $controller;
     
     /** @var JsonRpcEndpoint|MockObject */
     private $mockEndpoint;
@@ -32,9 +30,6 @@ class JsonRpcControllerTest extends TestCase
     /** @var Encryptor|MockObject */
     private $mockEncryptor;
     
-    /** @var UuidFactory|MockObject */
-    private $mockUuidFactory;
-    
     /** @var JsonRpcResponseNormalizer|MockObject */
     private $mockResponseNormalizer;
 
@@ -43,22 +38,20 @@ class JsonRpcControllerTest extends TestCase
         $this->mockEndpoint = $this->createMock(JsonRpcEndpoint::class);
         $this->mockLogger = $this->createMock(LoggerInterface::class);
         $this->mockEncryptor = $this->createMock(Encryptor::class);
-        $this->mockUuidFactory = $this->createMock(UuidFactory::class);
         $this->mockResponseNormalizer = $this->createMock(JsonRpcResponseNormalizer::class);
 
-        $this->controller = new JsonRpcController(
+        $this->controller = new DirectCallController(
             $this->mockEndpoint,
             $this->mockLogger,
             $this->mockEncryptor,
-            $this->mockUuidFactory,
             $this->mockResponseNormalizer
         );
     }
 
     /**
-     * 测试directCall方法 - 正常JSON请求处理
+     * 测试__invoke方法 - 正常JSON请求处理
      */
-    public function testDirectCall_withValidJsonRequest_returnsSuccessResponse(): void
+    public function testInvoke_withValidJsonRequest_returnsSuccessResponse(): void
     {
         $requestData = ['param1' => 'value1', 'param2' => 'value2'];
         $requestContent = json_encode($requestData);
@@ -86,7 +79,7 @@ class JsonRpcControllerTest extends TestCase
             ->with(json_encode($expectedJsonRpcRequest), $request)
             ->willReturn($responseContent);
 
-        $response = $this->controller->directCall($prefix, $method, $request);
+        $response = $this->controller->__invoke($prefix, $method, $request);
 
         $this->assertInstanceOf(Response::class, $response);
         $this->assertEquals($responseContent, $response->getContent());
@@ -94,9 +87,9 @@ class JsonRpcControllerTest extends TestCase
     }
 
     /**
-     * 测试directCall方法 - 加密请求处理
+     * 测试__invoke方法 - 加密请求处理
      */
-    public function testDirectCall_withEncryptedRequest_decryptsAndEncryptsResponse(): void
+    public function testInvoke_withEncryptedRequest_decryptsAndEncryptsResponse(): void
     {
         $encryptedContent = 'ENCRYPTED_DATA';
         $decryptedContent = '{"param":"value"}';
@@ -133,15 +126,15 @@ class JsonRpcControllerTest extends TestCase
             ->with($request, $responseContent)
             ->willReturn($encryptedResponse);
 
-        $response = $this->controller->directCall($prefix, $method, $request);
+        $response = $this->controller->__invoke($prefix, $method, $request);
 
         $this->assertEquals($encryptedResponse, $response->getContent());
     }
 
     /**
-     * 测试directCall方法 - 无request-id头的处理
+     * 测试__invoke方法 - 无request-id头的处理
      */
-    public function testDirectCall_withoutRequestIdHeader_generatesUuidId(): void
+    public function testInvoke_withoutRequestIdHeader_generatesUuidId(): void
     {
         $prefix = 'test';
         $method = 'testMethod';
@@ -161,15 +154,15 @@ class JsonRpcControllerTest extends TestCase
             }), $request)
             ->willReturn('{"jsonrpc":"2.0","result":"success","id":"generated-id"}');
 
-        $response = $this->controller->directCall($prefix, $method, $request);
+        $response = $this->controller->__invoke($prefix, $method, $request);
 
         $this->assertInstanceOf(Response::class, $response);
     }
 
     /**
-     * 测试directCall方法 - 空请求内容处理
+     * 测试__invoke方法 - 空请求内容处理
      */
-    public function testDirectCall_withEmptyContent_handlesEmptyParams(): void
+    public function testInvoke_withEmptyContent_handlesEmptyParams(): void
     {
         $prefix = 'test';
         $method = 'emptyMethod';
@@ -187,15 +180,15 @@ class JsonRpcControllerTest extends TestCase
             }), $request)
             ->willReturn('{"jsonrpc":"2.0","result":"empty_handled","id":"empty-123"}');
 
-        $response = $this->controller->directCall($prefix, $method, $request);
+        $response = $this->controller->__invoke($prefix, $method, $request);
 
         $this->assertInstanceOf(Response::class, $response);
     }
 
     /**
-     * 测试directCall方法 - 无效JSON处理（不记录日志，因为json_decode不抛异常）
+     * 测试__invoke方法 - 无效JSON处理（JSON解析失败）
      */
-    public function testDirectCall_withInvalidJson_handlesAsEmptyParams(): void
+    public function testInvoke_withInvalidJson_handlesAsEmptyParams(): void
     {
         $prefix = 'test';
         $method = 'invalidMethod';
@@ -206,24 +199,29 @@ class JsonRpcControllerTest extends TestCase
             ->method('shouldEncrypt')
             ->willReturn(false);
 
-        // json_decode失败时返回null，被直接作为params传入
+        $this->mockLogger->expects($this->once())
+            ->method('error')
+            ->with('JSON数据反序列化失败', $this->callback(function ($context) use ($invalidJson) {
+                return $context['content'] === $invalidJson && isset($context['error']);
+            }));
+
         $this->mockEndpoint->expects($this->once())
             ->method('index')
             ->with($this->callback(function ($jsonContent) {
                 $data = json_decode($jsonContent, true);
-                return $data['params'] === null;
+                return $data['params'] === [];
             }), $request)
             ->willReturn('{"jsonrpc":"2.0","result":"invalid_handled","id":"invalid-123"}');
 
-        $response = $this->controller->directCall($prefix, $method, $request);
+        $response = $this->controller->__invoke($prefix, $method, $request);
 
         $this->assertInstanceOf(Response::class, $response);
     }
 
     /**
-     * 测试directCall方法 - request-id包含HTML字符的处理
+     * 测试__invoke方法 - request-id包含HTML字符的处理
      */
-    public function testDirectCall_withHtmlInRequestId_sanitizesRequestId(): void
+    public function testInvoke_withHtmlInRequestId_sanitizesRequestId(): void
     {
         $prefix = 'test';
         $method = 'sanitizeMethod';
@@ -246,15 +244,15 @@ class JsonRpcControllerTest extends TestCase
             }), $request)
             ->willReturn('{"jsonrpc":"2.0","result":"sanitized","id":"' . $sanitizedId . '"}');
 
-        $response = $this->controller->directCall($prefix, $method, $request);
+        $response = $this->controller->__invoke($prefix, $method, $request);
 
         $this->assertInstanceOf(Response::class, $response);
     }
 
     /**
-     * 测试directCall方法 - 端点异常处理
+     * 测试__invoke方法 - 端点异常处理
      */
-    public function testDirectCall_withEndpointException_returnsErrorResponse(): void
+    public function testInvoke_withEndpointException_returnsErrorResponse(): void
     {
         $prefix = 'test';
         $method = 'errorMethod';
@@ -291,120 +289,12 @@ class JsonRpcControllerTest extends TestCase
             ->method('normalize')
             ->willReturn($normalizedResponse);
 
-        $response = $this->controller->directCall($prefix, $method, $request);
+        $response = $this->controller->__invoke($prefix, $method, $request);
 
         $this->assertInstanceOf(Response::class, $response);
         $this->assertEquals('application/json', $response->headers->get('Content-Type'));
         $responseData = json_decode($response->getContent(), true);
         $this->assertEquals('2.0', $responseData['jsonrpc']);
         $this->assertArrayHasKey('error', $responseData);
-    }
-
-    /**
-     * 测试directPost方法 - 正常表单请求处理
-     */
-    public function testDirectPost_withFormData_convertsToJsonRpcRequest(): void
-    {
-        $method = 'postMethod';
-        $formData = ['name' => 'John', 'age' => 30];
-        $mockUuid = $this->createMock(Uuid::class);
-        $mockUuid->expects($this->once())
-            ->method('toRfc4122')
-            ->willReturn('post-uuid-123');
-
-        $this->mockUuidFactory->expects($this->once())
-            ->method('create')
-            ->willReturn($mockUuid);
-
-        $request = new Request([], $formData);
-        $responseContent = '{"jsonrpc":"2.0","result":"form_processed","id":"post-uuid-123"}';
-
-        $expectedJsonRpcRequest = [
-            'jsonrpc' => '2.0',
-            'id' => 'post-uuid-123',
-            'method' => $method,
-            'params' => $formData,
-        ];
-
-        $this->mockEndpoint->expects($this->once())
-            ->method('index')
-            ->with(json_encode($expectedJsonRpcRequest), $request)
-            ->willReturn($responseContent);
-
-        $response = $this->controller->directPost($method, $request);
-
-        $this->assertInstanceOf(Response::class, $response);
-        $this->assertEquals($responseContent, $response->getContent());
-        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
-    }
-
-    /**
-     * 测试directPost方法 - 空表单数据处理
-     */
-    public function testDirectPost_withEmptyFormData_handlesEmptyParams(): void
-    {
-        $method = 'emptyPostMethod';
-        $mockUuid = $this->createMock(Uuid::class);
-        $mockUuid->expects($this->once())
-            ->method('toRfc4122')
-            ->willReturn('empty-post-uuid');
-
-        $this->mockUuidFactory->expects($this->once())
-            ->method('create')
-            ->willReturn($mockUuid);
-
-        $request = new Request();
-        $responseContent = '{"jsonrpc":"2.0","result":"empty_form_handled","id":"empty-post-uuid"}';
-
-        $this->mockEndpoint->expects($this->once())
-            ->method('index')
-            ->with($this->callback(function ($jsonContent) {
-                $data = json_decode($jsonContent, true);
-                return $data['params'] === [];
-            }), $request)
-            ->willReturn($responseContent);
-
-        $response = $this->controller->directPost($method, $request);
-
-        $this->assertInstanceOf(Response::class, $response);
-        $this->assertEquals($responseContent, $response->getContent());
-    }
-
-    /**
-     * 测试directPost方法 - 特殊字符表单数据处理
-     */
-    public function testDirectPost_withSpecialCharacters_handlesCorrectly(): void
-    {
-        $method = 'specialMethod';
-        $formData = [
-            'html' => '<script>alert("test")</script>',
-            'unicode' => '测试中文',
-            'special' => '!@#$%^&*()',
-        ];
-        
-        $mockUuid = $this->createMock(Uuid::class);
-        $mockUuid->expects($this->once())
-            ->method('toRfc4122')
-            ->willReturn('special-uuid');
-
-        $this->mockUuidFactory->expects($this->once())
-            ->method('create')
-            ->willReturn($mockUuid);
-
-        $request = new Request([], $formData);
-        $responseContent = '{"jsonrpc":"2.0","result":"special_handled","id":"special-uuid"}';
-
-        $this->mockEndpoint->expects($this->once())
-            ->method('index')
-            ->with($this->callback(function ($jsonContent) use ($formData) {
-                $data = json_decode($jsonContent, true);
-                return $data['params'] === $formData;
-            }), $request)
-            ->willReturn($responseContent);
-
-        $response = $this->controller->directPost($method, $request);
-
-        $this->assertInstanceOf(Response::class, $response);
-        $this->assertEquals($responseContent, $response->getContent());
     }
 }

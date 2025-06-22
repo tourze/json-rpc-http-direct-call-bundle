@@ -4,21 +4,23 @@ namespace Tourze\JsonRPCHttpDirectCallBundle\Tests;
 
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
-use Tourze\JsonRPCHttpDirectCallBundle\Controller\JsonRpcController;
+use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController;
+use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController;
 use Tourze\JsonRPCHttpDirectCallBundle\JsonRPCHttpDirectCallBundle;
 
 class JsonRPCHttpDirectCallBundleTest extends TestCase
 {
     /**
-     * 测试boot方法会将JsonRpcController类文件添加到忽略文件列表中
+     * 测试boot方法会将控制器类文件添加到忽略文件列表中
      */
-    public function testBoot_addsControllerToIgnoreFiles(): void
+    public function testBoot_addsControllersToIgnoreFiles(): void
     {
         // 创建一个JsonRPCHttpDirectCallBundle实例
         $bundle = new JsonRPCHttpDirectCallBundle();
 
-        // 获取JsonRpcController类文件路径
-        $controllerFile = (new ReflectionClass(JsonRpcController::class))->getFileName();
+        // 获取控制器类文件路径
+        $directCallControllerFile = (new ReflectionClass(DirectCallController::class))->getFileName();
+        $directPostControllerFile = (new ReflectionClass(DirectPostController::class))->getFileName();
 
         // 由于Backtrace是静态类，我们无法直接mock它
         // 我们可以检查boot方法执行前后，一些可观察的状态变化
