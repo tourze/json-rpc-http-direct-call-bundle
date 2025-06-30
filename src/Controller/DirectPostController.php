@@ -21,7 +21,7 @@ class DirectPostController extends AbstractController
     /**
      * 直接调用接口
      */
-    #[Route('/json-rpc/call/{method}', name: 'json_rpc_http_post_caller')]
+    #[Route(path: '/json-rpc/call/{method}', name: 'json_rpc_http_post_caller')]
     public function __invoke(string $method, Request $request): Response
     {
         // 构造一个JSON-RPC request

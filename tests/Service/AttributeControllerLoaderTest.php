@@ -9,6 +9,7 @@ use Symfony\Bundle\FrameworkBundle\Routing\AttributeRouteControllerLoader;
 use Symfony\Component\Routing\RouteCollection;
 use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController;
 use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController;
+use Tourze\JsonRPCHttpDirectCallBundle\Exception\UnexpectedControllerException;
 use Tourze\JsonRPCHttpDirectCallBundle\Service\AttributeControllerLoader;
 
 class AttributeControllerLoaderTest extends TestCase
@@ -54,7 +55,7 @@ class AttributeControllerLoaderTest extends TestCase
                 } elseif ($controller === DirectPostController::class) {
                     return $mockRouteCollection2;
                 }
-                throw new \InvalidArgumentException("Unexpected controller: $controller");
+                throw UnexpectedControllerException::create($controller);
             });
 
         // 执行被测方法

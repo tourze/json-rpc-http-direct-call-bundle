@@ -10,7 +10,7 @@ use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController;
 use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController;
 use Tourze\RoutingAutoLoaderBundle\Service\RoutingAutoLoaderInterface;
 
-#[AutoconfigureTag('routing.loader')]
+#[AutoconfigureTag(name: 'routing.loader')]
 class AttributeControllerLoader extends Loader implements RoutingAutoLoaderInterface
 {
     private AttributeRouteControllerLoader $controllerLoader;
