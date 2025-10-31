@@ -1,12 +1,16 @@
 <?php
 
-namespace Tourze\JsonRPCHttpDirectCallBundle\Tests\Unit\Exception;
+namespace Tourze\JsonRPCHttpDirectCallBundle\Tests\Exception;
 
-use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tourze\JsonRPCHttpDirectCallBundle\Exception\UnexpectedControllerException;
+use Tourze\PHPUnitBase\AbstractExceptionTestCase;
 
-class UnexpectedControllerExceptionTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(UnexpectedControllerException::class)]
+final class UnexpectedControllerExceptionTest extends AbstractExceptionTestCase
 {
     /**
      * 测试异常类是否继承自 InvalidArgumentException
@@ -14,7 +18,7 @@ class UnexpectedControllerExceptionTest extends TestCase
     public function testExceptionExtendsInvalidArgumentException(): void
     {
         $exception = UnexpectedControllerException::create('TestController');
-        $this->assertInstanceOf(InvalidArgumentException::class, $exception);
+        $this->assertInstanceOf(\InvalidArgumentException::class, $exception);
     }
 
     /**
@@ -26,7 +30,7 @@ class UnexpectedControllerExceptionTest extends TestCase
         $exception = UnexpectedControllerException::create($controller);
 
         $this->assertInstanceOf(UnexpectedControllerException::class, $exception);
-        $this->assertEquals("Unexpected controller: $controller", $exception->getMessage());
+        $this->assertEquals("Unexpected controller: {$controller}", $exception->getMessage());
     }
 
     /**
@@ -34,10 +38,10 @@ class UnexpectedControllerExceptionTest extends TestCase
      */
     public function testExceptionMessageFormat(): void
     {
-        $controller = 'App\\Controller\\TestController';
+        $controller = 'App\Controller\TestController';
         $exception = UnexpectedControllerException::create($controller);
 
-        $expectedMessage = "Unexpected controller: $controller";
+        $expectedMessage = "Unexpected controller: {$controller}";
         $this->assertEquals($expectedMessage, $exception->getMessage());
     }
 }

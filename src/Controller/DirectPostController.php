@@ -8,20 +8,20 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Factory\UuidFactory;
 use Tourze\JsonRPCEndpointBundle\Service\JsonRpcEndpoint as SDKJsonRpcEndpoint;
+use Tourze\JsonRPCHttpDirectCallBundle\Exception\JsonEncodingException;
 
-class DirectPostController extends AbstractController
+final class DirectPostController extends AbstractController
 {
     public function __construct(
         private readonly SDKJsonRpcEndpoint $sdkEndpoint,
         private readonly UuidFactory $uuidFactory,
-    )
-    {
+    ) {
     }
 
     /**
      * 直接调用接口
      */
-    #[Route(path: '/json-rpc/call/{method}', name: 'json_rpc_http_post_caller')]
+    #[Route(path: '/json-rpc/call/{method}', name: 'json_rpc_http_post_caller', methods: ['GET', 'POST'])]
     public function __invoke(string $method, Request $request): Response
     {
         // 构造一个JSON-RPC request
@@ -35,7 +35,11 @@ class DirectPostController extends AbstractController
         $response = new Response();
         $response->headers->set('Content-Type', 'application/json');
 
-        $response->setContent($this->sdkEndpoint->index(json_encode($json), $request));
+        $jsonContent = json_encode($json);
+        if (false === $jsonContent) {
+            throw JsonEncodingException::forContent();
+        }
+        $response->setContent($this->sdkEndpoint->index($jsonContent, $request));
 
         return $response;
     }

@@ -2,38 +2,14 @@
 
 namespace Tourze\JsonRPCHttpDirectCallBundle\Tests\DependencyInjection;
 
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
+use PHPUnit\Framework\Attributes\CoversClass;
 use Tourze\JsonRPCHttpDirectCallBundle\DependencyInjection\JsonRPCHttpDirectCallExtension;
+use Tourze\PHPUnitSymfonyUnitTest\AbstractDependencyInjectionExtensionTestCase;
 
-class JsonRPCHttpDirectCallExtensionTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(JsonRPCHttpDirectCallExtension::class)]
+final class JsonRPCHttpDirectCallExtensionTest extends AbstractDependencyInjectionExtensionTestCase
 {
-    /**
-     * 测试load方法不抛出异常
-     */
-    public function testLoad_loadsServicesYamlFile(): void
-    {
-        $extension = new JsonRPCHttpDirectCallExtension();
-        $container = new ContainerBuilder();
-
-        // 设置一个空的配置数组
-        $configs = [];
-
-        // 测试方法是否可以正常执行不抛出异常
-        try {
-            $extension->load($configs, $container);
-            $this->assertTrue(true, 'Extension load method executed without exceptions');
-        } catch (\Throwable $e) {
-            $this->fail('Extension load method should not throw exceptions: ' . $e->getMessage());
-        }
-
-        // 验证服务是否已注册
-        $this->assertTrue($container->has('Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController') ||
-            $container->hasDefinition('Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController'),
-            'DirectCallController service should be registered');
-            
-        $this->assertTrue($container->has('Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController') ||
-            $container->hasDefinition('Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController'),
-            'DirectPostController service should be registered');
-    }
 }

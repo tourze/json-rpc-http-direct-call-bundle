@@ -2,144 +2,287 @@
 
 namespace Tourze\JsonRPCHttpDirectCallBundle\Tests\Controller;
 
-use PHPUnit\Framework\MockObject\MockObject;
-use PHPUnit\Framework\TestCase;
-use Symfony\Component\HttpFoundation\Request;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
 use Symfony\Component\HttpFoundation\Response;
-use Symfony\Component\Uid\Factory\UuidFactory;
-use Symfony\Component\Uid\Uuid;
-use Tourze\JsonRPCEndpointBundle\Service\JsonRpcEndpoint;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController;
+use Tourze\PHPUnitSymfonyWebTest\AbstractWebTestCase;
 
 /**
- * DirectPost控制器完整测试类
+ * DirectPostController 真实 HTTP 请求测试
+ *
+ * @internal
  */
-class DirectPostControllerTest extends TestCase
+#[CoversClass(DirectPostController::class)]
+#[RunTestsInSeparateProcesses]
+final class DirectPostControllerTest extends AbstractWebTestCase
 {
-    private DirectPostController $controller;
-    
-    /** @var JsonRpcEndpoint|MockObject */
-    private $mockEndpoint;
-    
-    /** @var UuidFactory|MockObject */
-    private $mockUuidFactory;
-
-    /**
-     * 测试__invoke方法 - 正常表单请求处理
-     */
-    public function testInvoke_withFormData_convertsToJsonRpcRequest(): void
+    public function testPostRequestWithFormDataConvertsToJsonRpcRequest(): void
     {
-        $method = 'postMethod';
-        $formData = ['name' => 'John', 'age' => 30];
-        $mockUuid = $this->createMock(Uuid::class);
-        $mockUuid->expects($this->once())
-            ->method('toRfc4122')
-            ->willReturn('post-uuid-123');
+        $client = self::createClientWithDatabase();
 
-        $this->mockUuidFactory->expects($this->once())
-            ->method('create')
-            ->willReturn($mockUuid);
-
-        $request = new Request([], $formData);
-        $responseContent = '{"jsonrpc":"2.0","result":"form_processed","id":"post-uuid-123"}';
-
-        $expectedJsonRpcRequest = [
-            'jsonrpc' => '2.0',
-            'id' => 'post-uuid-123',
-            'method' => $method,
-            'params' => $formData,
+        $formData = [
+            'name' => 'John',
+            'age' => 30,
+            'email' => 'john@example.com',
         ];
 
-        $this->mockEndpoint->expects($this->once())
-            ->method('index')
-            ->with(json_encode($expectedJsonRpcRequest), $request)
-            ->willReturn($responseContent);
+        $client->request('POST', '/json-rpc/call/testMethod', $formData, [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
 
-        $response = $this->controller->__invoke($method, $request);
-
+        $response = $client->getResponse();
         $this->assertInstanceOf(Response::class, $response);
-        $this->assertEquals($responseContent, $response->getContent());
         $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertJson($content);
+
+        $responseData = json_decode($content, true);
+        $this->assertIsArray($responseData);
+        $this->assertArrayHasKey('jsonrpc', $responseData);
+        $this->assertEquals('2.0', $responseData['jsonrpc']);
     }
 
-    /**
-     * 测试__invoke方法 - 空表单数据处理
-     */
-    public function testInvoke_withEmptyFormData_handlesEmptyParams(): void
+    public function testPostRequestWithEmptyFormDataHandlesEmptyParams(): void
     {
-        $method = 'emptyPostMethod';
-        $mockUuid = $this->createMock(Uuid::class);
-        $mockUuid->expects($this->once())
-            ->method('toRfc4122')
-            ->willReturn('empty-post-uuid');
+        $client = self::createClientWithDatabase();
 
-        $this->mockUuidFactory->expects($this->once())
-            ->method('create')
-            ->willReturn($mockUuid);
+        $client->request('POST', '/json-rpc/call/emptyMethod', [], [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
 
-        $request = new Request();
-        $responseContent = '{"jsonrpc":"2.0","result":"empty_form_handled","id":"empty-post-uuid"}';
-
-        $this->mockEndpoint->expects($this->once())
-            ->method('index')
-            ->with($this->callback(function ($jsonContent) {
-                $data = json_decode($jsonContent, true);
-                return $data['params'] === [];
-            }), $request)
-            ->willReturn($responseContent);
-
-        $response = $this->controller->__invoke($method, $request);
-
+        $response = $client->getResponse();
         $this->assertInstanceOf(Response::class, $response);
-        $this->assertEquals($responseContent, $response->getContent());
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertJson($content);
+        $responseData = json_decode($content, true);
+        $this->assertIsArray($responseData);
+        $this->assertArrayHasKey('jsonrpc', $responseData);
+        $this->assertEquals('2.0', $responseData['jsonrpc']);
     }
 
-    /**
-     * 测试__invoke方法 - 特殊字符表单数据处理
-     */
-    public function testInvoke_withSpecialCharacters_handlesCorrectly(): void
+    public function testPostRequestWithSpecialCharactersHandlesCorrectly(): void
     {
-        $method = 'specialMethod';
+        $client = self::createClientWithDatabase();
+
         $formData = [
             'html' => '<script>alert("test")</script>',
             'unicode' => '测试中文',
             'special' => '!@#$%^&*()',
+            'quotes' => 'He said "Hello"',
         ];
 
-        $mockUuid = $this->createMock(Uuid::class);
-        $mockUuid->expects($this->once())
-            ->method('toRfc4122')
-            ->willReturn('special-uuid');
+        $client->request('POST', '/json-rpc/call/specialMethod', $formData, [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
 
-        $this->mockUuidFactory->expects($this->once())
-            ->method('create')
-            ->willReturn($mockUuid);
-
-        $request = new Request([], $formData);
-        $responseContent = '{"jsonrpc":"2.0","result":"special_handled","id":"special-uuid"}';
-
-        $this->mockEndpoint->expects($this->once())
-            ->method('index')
-            ->with($this->callback(function ($jsonContent) use ($formData) {
-                $data = json_decode($jsonContent, true);
-                return $data['params'] === $formData;
-            }), $request)
-            ->willReturn($responseContent);
-
-        $response = $this->controller->__invoke($method, $request);
-
+        $response = $client->getResponse();
         $this->assertInstanceOf(Response::class, $response);
-        $this->assertEquals($responseContent, $response->getContent());
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertJson($content);
+        $responseData = json_decode($content, true);
+        $this->assertIsArray($responseData);
+        $this->assertArrayHasKey('jsonrpc', $responseData);
+        $this->assertEquals('2.0', $responseData['jsonrpc']);
     }
 
-    protected function setUp(): void
+    public function testPostRequestWithNestedArrayData(): void
     {
-        $this->mockEndpoint = $this->createMock(JsonRpcEndpoint::class);
-        $this->mockUuidFactory = $this->createMock(UuidFactory::class);
+        $client = self::createClientWithDatabase();
 
-        $this->controller = new DirectPostController(
-            $this->mockEndpoint,
-            $this->mockUuidFactory
-        );
+        $formData = [
+            'user' => [
+                'name' => 'John',
+                'profile' => [
+                    'age' => 30,
+                    'city' => 'Beijing',
+                ],
+            ],
+            'preferences' => ['color' => 'blue', 'theme' => 'dark'],
+        ];
+
+        $client->request('POST', '/json-rpc/call/nestedMethod', $formData, [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $response = $client->getResponse();
+        $this->assertInstanceOf(Response::class, $response);
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertJson($content);
+        $responseData = json_decode($content, true);
+        $this->assertIsArray($responseData);
+        $this->assertArrayHasKey('jsonrpc', $responseData);
+        $this->assertEquals('2.0', $responseData['jsonrpc']);
+    }
+
+    public function testPostRequestWithLargeFormData(): void
+    {
+        $client = self::createClientWithDatabase();
+
+        $formData = [];
+        for ($i = 0; $i < 100; ++$i) {
+            $formData["field_{$i}"] = "value_{$i}";
+        }
+
+        $client->request('POST', '/json-rpc/call/largeDataMethod', $formData, [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $response = $client->getResponse();
+        $this->assertInstanceOf(Response::class, $response);
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertJson($content);
+        $responseData = json_decode($content, true);
+        $this->assertIsArray($responseData);
+        $this->assertArrayHasKey('jsonrpc', $responseData);
+        $this->assertEquals('2.0', $responseData['jsonrpc']);
+    }
+
+    public function testGetRequestWithoutParametersReturnsError(): void
+    {
+        $client = self::createClientWithDatabase();
+
+        $client->request('GET', '/json-rpc/call/testMethod', [], [], [
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $response = $client->getResponse();
+        $this->assertInstanceOf(Response::class, $response);
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertJson($content);
+        $responseData = json_decode($content, true);
+        $this->assertIsArray($responseData);
+        $this->assertArrayHasKey('jsonrpc', $responseData);
+        $this->assertEquals('2.0', $responseData['jsonrpc']);
+    }
+
+    public function testUnauthenticatedAccessIsAllowed(): void
+    {
+        $client = self::createClientWithDatabase();
+
+        $formData = [
+            'public' => 'data',
+        ];
+
+        $client->request('POST', '/json-rpc/call/publicMethod', $formData, [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $response = $client->getResponse();
+        $this->assertInstanceOf(Response::class, $response);
+        $this->assertTrue($response->isSuccessful());
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertJson($content);
+        $responseData = json_decode($content, true);
+        $this->assertIsArray($responseData);
+        $this->assertArrayHasKey('jsonrpc', $responseData);
+        $this->assertEquals('2.0', $responseData['jsonrpc']);
+    }
+
+    public function testResponseContainsCorrectHeaders(): void
+    {
+        $client = self::createClientWithDatabase();
+
+        $client->request('POST', '/json-rpc/call/headerTest', ['test' => 'value'], [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $response = $client->getResponse();
+        $this->assertInstanceOf(Response::class, $response);
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $this->assertTrue($response->headers->has('Content-Type'));
+    }
+
+    public function testDifferentMethodNamesAreHandledCorrectly(): void
+    {
+        $client = self::createClientWithDatabase();
+
+        $methods = ['method1', 'method_2', 'method-3', 'CamelCaseMethod', 'snake_case_method'];
+
+        foreach ($methods as $method) {
+            $client->request('POST', "/json-rpc/call/{$method}", ['data' => 'test'], [], [
+                'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+                'HTTP_ACCEPT' => 'application/json',
+            ]);
+
+            $response = $client->getResponse();
+            $this->assertInstanceOf(Response::class, $response);
+            $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+            $content = $response->getContent();
+            $this->assertIsString($content);
+            $this->assertJson($content);
+
+            $responseData = json_decode($content, true);
+            $this->assertIsArray($responseData);
+            $this->assertArrayHasKey('jsonrpc', $responseData);
+            $this->assertEquals('2.0', $responseData['jsonrpc']);
+        }
+    }
+
+    public function testEmptyMethodNameHandling(): void
+    {
+        $client = self::createClientWithDatabase();
+
+        $this->expectException(NotFoundHttpException::class);
+        $client->request('POST', '/json-rpc/call/', ['data' => 'test'], [], [
+            'CONTENT_TYPE' => 'application/x-www-form-urlencoded',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+    }
+
+    public function testFileUploadParametersAreIgnored(): void
+    {
+        $client = self::createClientWithDatabase();
+
+        $files = [];
+        $parameters = ['text_field' => 'value'];
+
+        $client->request('POST', '/json-rpc/call/uploadMethod', $parameters, $files, [
+            'CONTENT_TYPE' => 'multipart/form-data',
+            'HTTP_ACCEPT' => 'application/json',
+        ]);
+
+        $response = $client->getResponse();
+        $this->assertInstanceOf(Response::class, $response);
+        $this->assertEquals('application/json', $response->headers->get('Content-Type'));
+        $content = $response->getContent();
+        $this->assertIsString($content);
+        $this->assertJson($content);
+        $responseData = json_decode($content, true);
+        $this->assertIsArray($responseData);
+        $this->assertArrayHasKey('jsonrpc', $responseData);
+        $this->assertEquals('2.0', $responseData['jsonrpc']);
+    }
+
+    #[DataProvider('provideNotAllowedMethods')]
+    public function testMethodNotAllowed(string $method): void
+    {
+        $client = self::createClientWithDatabase();
+
+        $this->expectException(MethodNotAllowedHttpException::class);
+        $client->request($method, '/json-rpc/call/testMethod');
     }
 }

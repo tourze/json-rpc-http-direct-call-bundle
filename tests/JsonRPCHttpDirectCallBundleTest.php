@@ -1,35 +1,28 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tourze\JsonRPCHttpDirectCallBundle\Tests;
 
-use PHPUnit\Framework\TestCase;
-use ReflectionClass;
-use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectCallController;
-use Tourze\JsonRPCHttpDirectCallBundle\Controller\DirectPostController;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\RunTestsInSeparateProcesses;
+use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Tourze\JsonRPCHttpDirectCallBundle\JsonRPCHttpDirectCallBundle;
+use Tourze\PHPUnitSymfonyKernelTest\AbstractBundleTestCase;
 
-class JsonRPCHttpDirectCallBundleTest extends TestCase
+/**
+ * @internal
+ */
+#[CoversClass(JsonRPCHttpDirectCallBundle::class)]
+#[RunTestsInSeparateProcesses]
+final class JsonRPCHttpDirectCallBundleTest extends AbstractBundleTestCase
 {
-    /**
-     * 测试boot方法会将控制器类文件添加到忽略文件列表中
-     */
-    public function testBoot_addsControllersToIgnoreFiles(): void
+    public function testBundleHasName(): void
     {
-        // 创建一个JsonRPCHttpDirectCallBundle实例
-        $bundle = new JsonRPCHttpDirectCallBundle();
-
-        // 获取控制器类文件路径
-        $directCallControllerFile = (new ReflectionClass(DirectCallController::class))->getFileName();
-        $directPostControllerFile = (new ReflectionClass(DirectPostController::class))->getFileName();
-
-        // 由于Backtrace是静态类，我们无法直接mock它
-        // 我们可以检查boot方法执行前后，一些可观察的状态变化
-
-        // 检查bundle的boot方法能否正常执行，不抛出异常
-        $bundle->boot();
-
-        // 这里我们只能验证代码不会抛出异常
-        // 在实际应用中，可能需要考虑更多方式来验证静态方法的调用
-        $this->assertTrue(true, 'Boot method executed without exceptions');
+        $className = self::getBundleClass();
+        $this->assertIsString($className);
+        /** @var Bundle $bundle */
+        $bundle = new $className();
+        $this->assertNotEmpty($bundle->getName());
     }
 }
