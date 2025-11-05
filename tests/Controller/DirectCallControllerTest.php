@@ -129,6 +129,7 @@ final class DirectCallControllerTest extends AbstractWebTestCase
         $responseData = json_decode($content, true);
         $this->assertIsArray($responseData);
         $this->assertArrayHasKey('id', $responseData);
+        $this->assertIsString($responseData['id']);
         $this->assertStringContainsString('&lt;script&gt;', $responseData['id']);
     }
 
