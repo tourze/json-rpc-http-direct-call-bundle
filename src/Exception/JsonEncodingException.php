@@ -2,7 +2,7 @@
 
 namespace Tourze\JsonRPCHttpDirectCallBundle\Exception;
 
-class JsonEncodingException extends \RuntimeException
+final class JsonEncodingException extends \RuntimeException
 {
     public static function forContent(): self
     {

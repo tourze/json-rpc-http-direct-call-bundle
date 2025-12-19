@@ -4,7 +4,7 @@ namespace Tourze\JsonRPCHttpDirectCallBundle\DependencyInjection;
 
 use Tourze\SymfonyDependencyServiceLoader\AutoExtension;
 
-class JsonRPCHttpDirectCallExtension extends AutoExtension
+final class JsonRPCHttpDirectCallExtension extends AutoExtension
 {
     protected function getConfigDir(): string
     {
